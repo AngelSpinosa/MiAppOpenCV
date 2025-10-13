@@ -1,5 +1,3 @@
-// Esta es la configuración final para el módulo de tu aplicación.
-
 plugins {
     alias(libs.plugins.android.application)
 }
@@ -27,8 +25,6 @@ android {
             )
         }
     }
-
-    // Asegurándose de que las opciones de Java coincidan con las de la librería.
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -36,12 +32,9 @@ android {
 }
 
 dependencies {
-    // ¡Esta es la línea MÁS IMPORTANTE!
-    // Le indica a tu app que use el módulo :openCV como una dependencia.
-    // El nombre ":openCV" debe coincidir EXACTAMENTE con el nombre de la carpeta del módulo.
+    // La dependencia de los archivos Java sigue siendo necesaria
     implementation(project(":openCV"))
 
-    // Dependencias estándar de Android
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
@@ -50,4 +43,3 @@ dependencies {
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
 }
-
