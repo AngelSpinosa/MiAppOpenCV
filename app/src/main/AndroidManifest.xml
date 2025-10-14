@@ -2,17 +2,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- 1. Permiso para usar la cámara -->
-    <!-- Esta es la línea más importante que faltaba. -->
     <uses-permission android:name="android.permission.CAMERA"/>
-
-    <!-- 2. Declaración de que la cámara es necesaria -->
-    <!-- Esto asegura que la app solo se instale en dispositivos con cámara. -->
     <uses-feature android:name="android.hardware.camera" android:required="true"/>
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
     <uses-feature android:name="android.hardware.camera.front" android:required="false"/>
     <uses-feature android:name="android.hardware.camera.front.autofocus" android:required="false"/>
-
 
     <application
         android:allowBackup="true"
@@ -24,16 +18,24 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MiAppOpenCV"
         tools:targetApi="31">
+
         <activity
             android:name=".MainActivity"
-            android:exported="true"
-            android:screenOrientation="landscape"
-            android:theme="@style/Theme.AppCompat.NoActionBar">
-        <intent-filter>
-            <action android:name="android.intent.action.MAIN" />
-
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent-filter>
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
         </activity>
+
+        <!-- CORRECCIÓN: Eliminando la orientación fija para máxima compatibilidad -->
+        <activity
+            android:name=".CameraActivity"
+            android:exported="false"
+            android:theme="@style/Theme.AppCompat.NoActionBar">
+        </activity>
+
     </application>
+
 </manifest>
+

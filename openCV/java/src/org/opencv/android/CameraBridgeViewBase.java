@@ -326,12 +326,15 @@ public abstract class CameraBridgeViewBase extends SurfaceView implements Surfac
      * This method is provided for clients, so they can enable the camera connection.
      * The actual onCameraViewStarted callback will be delivered only after setCameraPermissionGranted
      * and enableView have been called and surface is available
+     *
+     * @return
      */
-    public void enableView() {
+    public boolean enableView() {
         synchronized(mSyncObject) {
             mEnabled = true;
             checkCurrentState();
         }
+        return false;
     }
 
     /**
