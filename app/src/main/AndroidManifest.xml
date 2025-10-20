@@ -28,10 +28,11 @@
             </intent-filter>
         </activity>
 
-        <!-- CORRECCIÓN: Eliminando la orientación fija para máxima compatibilidad -->
+        <!-- Nueva Actividad para la Cámara -->
         <activity
             android:name=".CameraActivity"
             android:exported="false"
+            android:screenOrientation="fullSensor"
             android:theme="@style/Theme.AppCompat.NoActionBar">
         </activity>
 

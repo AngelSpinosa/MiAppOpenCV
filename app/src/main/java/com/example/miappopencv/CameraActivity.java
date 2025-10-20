@@ -2,152 +2,185 @@ package com.example.miappopencv;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.SurfaceView;
-import android.view.ViewTreeObserver;
-import android.view.WindowManager;
+import android.widget.ImageView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.CameraInfo;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageAnalysis;
+import androidx.camera.core.ImageProxy;
+import androidx.camera.core.Preview;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import org.opencv.android.CameraBridgeViewBase;
+import com.google.common.util.concurrent.ListenableFuture;
+
 import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
 
-public class CameraActivity extends AppCompatActivity implements CameraBridgeViewBase.CvCameraViewListener2 {
+import java.nio.ByteBuffer;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-    private static final String TAG = "OCV_MiApp";
-    private static final int CAMERA_PERMISSION_REQUEST = 1;
+public class CameraActivity extends AppCompatActivity {
 
-    private CameraBridgeViewBase mOpenCvCameraView;
-    private Mat mRgba;
-    private Mat mGray;
-    private static boolean isLibraryLoaded = false;
+    private static final String TAG = "OCV_CameraX_Final";
+    private static final int REQUEST_CODE_PERMISSIONS = 10;
+    private final String[] REQUIRED_PERMISSIONS = new String[]{Manifest.permission.CAMERA};
+
+    private PreviewView previewView;
+    private ImageView processedImageView;
+    private ExecutorService cameraExecutor;
+
+    private Mat yuvMat, grayMat, rgbaMat;
+    private Bitmap processedBitmap;
 
     static {
         if (OpenCVLoader.initDebug()) {
-            Log.d(TAG, "¡Éxito! La librería nativa de OpenCV se cargó correctamente.");
-            isLibraryLoaded = true;
+            Log.d(TAG, "OpenCV cargado exitosamente.");
         } else {
-            Log.e(TAG, "¡Error! La librería nativa de OpenCV no se pudo cargar.");
-            isLibraryLoaded = false;
+            Log.e(TAG, "Fallo al cargar OpenCV.");
         }
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        Log.d(TAG, "CameraActivity: onCreate llamado.");
         super.onCreate(savedInstanceState);
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         setContentView(R.layout.activity_camera);
 
-        mOpenCvCameraView = (CameraBridgeViewBase) findViewById(R.id.java_camera_view);
+        previewView = findViewById(R.id.camera_preview);
+        processedImageView = findViewById(R.id.processed_image_view);
+        cameraExecutor = Executors.newSingleThreadExecutor();
 
-        // --- DEPURACIÓN DE VISTA ---
-        // Este bloque nos dirá las dimensiones de la vista una vez que esté lista para ser dibujada.
-        mOpenCvCameraView.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
-            @Override
-            public void onGlobalLayout() {
-                mOpenCvCameraView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                int width = mOpenCvCameraView.getWidth();
-                int height = mOpenCvCameraView.getHeight();
-                Log.d(TAG, "CameraActivity: Vista de cámara dibujada con dimensiones: " + width + "x" + height);
-                // Si las dimensiones son 0x0, la vista no se está mostrando correctamente.
+        if (allPermissionsGranted()) {
+            startCamera();
+        } else {
+            ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS);
+        }
+    }
+
+    private void startCamera() {
+        ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
+
+        cameraProviderFuture.addListener(() -> {
+            try {
+                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+
+                Preview preview = new Preview.Builder().build();
+                preview.setSurfaceProvider(previewView.getSurfaceProvider());
+
+                // --- ¡NUEVA LÓGICA DE SELECCIÓN DE CÁMARA! ---
+                // En lugar de pedir la cámara por defecto, buscamos la primera cámara física trasera.
+                CameraSelector cameraSelector = new CameraSelector.Builder()
+                        .addCameraFilter(cameraInfos -> {
+                            for (CameraInfo cameraInfo : cameraInfos) {
+                                // Verificar si la cámara es física y es la trasera
+                                Integer lensFacing = cameraInfo.getLensFacing();
+                                if (lensFacing != null && lensFacing == CameraSelector.LENS_FACING_BACK) {
+                                    return java.util.Collections.singletonList(cameraInfo);
+                                }
+                            }
+                            // Si no se encuentra ninguna, la lista estará vacía y fallará con un error claro.
+                            return java.util.Collections.emptyList();
+                        })
+                        .build();
+                // --- FIN DE LA NUEVA LÓGICA ---
+
+
+                ImageAnalysis imageAnalyzer = new ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build();
+
+                imageAnalyzer.setAnalyzer(cameraExecutor, new OpenCVAnalyzer());
+
+                cameraProvider.unbindAll();
+                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer);
+                Log.d(TAG, "CameraX iniciado y enlazado al ciclo de vida.");
+
+            } catch (Exception e) {
+                Log.e(TAG, "Fallo al iniciar o enlazar CameraX. Posiblemente no se encontró una cámara compatible.", e);
+                runOnUiThread(() -> Toast.makeText(this, "No se pudo iniciar la cámara.", Toast.LENGTH_LONG).show());
             }
-        });
-        // -------------------------
-
-        mOpenCvCameraView.setVisibility(SurfaceView.VISIBLE);
-        mOpenCvCameraView.setCvCameraViewListener(this);
-        mOpenCvCameraView.setCameraIndex(CameraBridgeViewBase.CAMERA_ID_BACK);
-
-        verificarPermisosDeCamara();
+        }, ContextCompat.getMainExecutor(this));
     }
 
-    private void verificarPermisosDeCamara() {
-        Log.d(TAG, "CameraActivity: Verificando permisos...");
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            Log.d(TAG, "CameraActivity: Permiso ya concedido. Activando cámara...");
-            initializeOpenCV();
-        } else {
-            Log.d(TAG, "CameraActivity: Solicitando permiso...");
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST);
+    private class OpenCVAnalyzer implements ImageAnalysis.Analyzer {
+        @Override
+        public void analyze(@NonNull ImageProxy image) {
+            if (yuvMat == null) {
+                yuvMat = new Mat(image.getHeight() + image.getHeight() / 2, image.getWidth(), CvType.CV_8UC1);
+                grayMat = new Mat();
+                rgbaMat = new Mat();
+            }
+
+            ImageProxy.PlaneProxy[] planes = image.getPlanes();
+            ByteBuffer yBuffer = planes[0].getBuffer();
+            ByteBuffer uBuffer = planes[1].getBuffer();
+            ByteBuffer vBuffer = planes[2].getBuffer();
+            int ySize = yBuffer.remaining();
+            int uSize = uBuffer.remaining();
+            int vSize = vBuffer.remaining();
+            byte[] nv21 = new byte[ySize + uSize + vSize];
+            yBuffer.get(nv21, 0, ySize);
+            vBuffer.get(nv21, ySize, vSize);
+            uBuffer.get(nv21, ySize + vSize, uSize);
+            yuvMat.put(0, 0, nv21);
+
+            Imgproc.cvtColor(yuvMat, rgbaMat, Imgproc.COLOR_YUV2RGBA_NV21);
+            Imgproc.cvtColor(rgbaMat, grayMat, Imgproc.COLOR_RGBA2GRAY);
+
+            Core.rotate(grayMat, grayMat, Core.ROTATE_90_CLOCKWISE);
+
+            // Ajuste para el tamaño del Bitmap en caso de rotación
+            if (processedBitmap == null || processedBitmap.getWidth() != grayMat.cols() || processedBitmap.getHeight() != grayMat.rows()) {
+                processedBitmap = Bitmap.createBitmap(grayMat.cols(), grayMat.rows(), Bitmap.Config.ARGB_8888);
+            }
+
+            Utils.matToBitmap(grayMat, processedBitmap);
+
+            runOnUiThread(() -> processedImageView.setImageBitmap(processedBitmap));
+
+            image.close();
         }
     }
 
     @Override
-    public void onPause() {
-        super.onPause();
-        Log.d(TAG, "CameraActivity: onPause llamado.");
-        if (mOpenCvCameraView != null)
-            mOpenCvCameraView.disableView();
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        if (isLibraryLoaded && ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            Log.d(TAG, "CameraActivity: Reactivando cámara desde onResume...");
-            initializeOpenCV();
-        } else {
-            Log.d(TAG, "CameraActivity: Aún no hay permisos o librería no cargada en onResume.");
-        }
-    }
-
-    @Override
-    public void onDestroy() {
-        super.onDestroy();
-        Log.d(TAG, "CameraActivity: onDestroy llamado.");
-        if (mOpenCvCameraView != null)
-            mOpenCvCameraView.disableView();
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == CAMERA_PERMISSION_REQUEST) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Log.d(TAG, "CameraActivity: Permiso concedido por el usuario.");
-                initializeOpenCV();
+        if (requestCode == REQUEST_CODE_PERMISSIONS) {
+            if (allPermissionsGranted()) {
+                startCamera();
             } else {
-                Log.w(TAG, "CameraActivity: Permiso denegado por el usuario.");
-                Toast.makeText(this, "El permiso de la cámara es necesario.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, "Permisos no concedidos por el usuario.", Toast.LENGTH_SHORT).show();
                 finish();
             }
         }
     }
 
-    private void initializeOpenCV() {
-        if (isLibraryLoaded && mOpenCvCameraView != null) {
-            Log.d(TAG, "Intentando activar la vista de la cámara...");
-            boolean result = mOpenCvCameraView.enableView();
-            Log.d(TAG, "mOpenCvCameraView.enableView() devolvió: " + result);
-        } else {
-            Log.e(TAG, "CameraActivity: No se puede activar la cámara, librería no cargada o vista no inicializada.");
+    private boolean allPermissionsGranted() {
+        for (String permission : REQUIRED_PERMISSIONS) {
+            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+                return false;
+            }
         }
+        return true;
     }
 
-    public void onCameraViewStarted(int width, int height) {
-        Log.d(TAG, "¡VISTA DE CÁMARA INICIADA! con resolución: " + width + "x" + height);
-        mRgba = new Mat(height, width, CvType.CV_8UC4);
-        mGray = new Mat(height, width, CvType.CV_8UC1);
-    }
-
-    public void onCameraViewStopped() {
-        Log.d(TAG, "¡VISTA DE CÁMARA DETENIDA!");
-        mRgba.release();
-        mGray.release();
-    }
-
-    public Mat onCameraFrame(CameraBridgeViewBase.CvCameraViewFrame inputFrame) {
-        mRgba = inputFrame.rgba();
-        Imgproc.cvtColor(mRgba, mGray, Imgproc.COLOR_RGBA2GRAY);
-        return mGray;
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        cameraExecutor.shutdown();
     }
 }
 
