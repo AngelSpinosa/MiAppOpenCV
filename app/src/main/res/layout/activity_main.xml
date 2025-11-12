@@ -4,17 +4,95 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:padding="16dp"
     tools:context=".MainActivity">
 
-    <Button
-        android:id="@+id/btn_open_camera"
+    <TextView
+        android:id="@+id/tv_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Abrir Cámara OpenCV"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:text="MiAppOpenCV - Menú Principal"
+        android:textSize="20sp"
+        android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.3"
+        app:layout_constraintBottom_toTopOf="@+id/main_menu_grid"
+        app:layout_constraintVertical_chainStyle="packed"
+        />
+
+    <!--
+    GridLayout para los botones del menú.
+    columnCount="2" significa que habrá 2 columnas.
+    Los botones se añadirán de izquierda a derecha, y luego saltarán a la siguiente fila.
+    -->
+    <androidx.gridlayout.widget.GridLayout
+        android:id="@+id/main_menu_grid"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        app:columnCount="2"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tv_title"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintVertical_bias="0.0"
+        >
+
+        <!--
+        Botón para lanzar la actividad de filtro OpenCV existente.
+        app:layout_columnWeight="1" y android:layout_width="0dp" hacen que el botón
+        ocupe el espacio disponible en su columna.
+        app:layout_gravity="fill_horizontal" asegura que llene el ancho.
+        -->
+        <Button
+            android:id="@+id/btn_launch_opencv_filter"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_margin="8dp"
+            android:text="Filtro B/N (OpenCV)"
+            android:textSize="16sp"
+            app:layout_columnWeight="1"
+            app:layout_gravity="fill_horizontal" />
+
+        <!-- Botón para lanzar la nueva actividad de reconocimiento de números -->
+        <Button
+            android:id="@+id/btn_launch_number_recognition"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_margin="8dp"
+            android:text="Reconocer Números (Tiny)"
+            android:textSize="16sp"
+            app:layout_columnWeight="1"
+            app:layout_gravity="fill_horizontal" />
+
+        <!--
+        PUEDES AÑADIR MÁS BOTONES AQUÍ.
+        Por ejemplo, si añades un tercer botón, aparecerá en la siguiente fila,
+        en la primera columna.
+
+        <Button
+            android:id="@+id/btn_nueva_funcion_3"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_margin="8dp"
+            android:text="Función 3"
+            android:textSize="16sp"
+            app:layout_columnWeight="1"
+            app:layout_gravity="fill_horizontal" />
+
+        <Button
+            android:id="@+id/btn_nueva_funcion_4"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_margin="8dp"
+            android:text="Función 4"
+            android:textSize="16sp"
+            app:layout_columnWeight="1"
+            app:layout_gravity="fill_horizontal" />
+        -->
+
+    </androidx.gridlayout.widget.GridLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
-

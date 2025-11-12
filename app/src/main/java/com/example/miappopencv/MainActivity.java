@@ -13,11 +13,20 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        Button btnOpenCamera = findViewById(R.id.btn_open_camera);
-        btnOpenCamera.setOnClickListener(v -> {
+        // Referencia al botón del filtro OpenCV
+        Button btnLaunchOpenCVFilter = findViewById(R.id.btn_launch_opencv_filter);
+        btnLaunchOpenCVFilter.setOnClickListener(v -> {
+            // Lanza la CameraActivity existente
             Intent intent = new Intent(MainActivity.this, CameraActivity.class);
+            startActivity(intent);
+        });
+
+        // Referencia al botón del reconocedor de números
+        Button btnLaunchNumberRecognition = findViewById(R.id.btn_launch_number_recognition);
+        btnLaunchNumberRecognition.setOnClickListener(v -> {
+            // Lanza la NUEVA NumberRecognitionActivity
+            Intent intent = new Intent(MainActivity.this, NumberRecognitionActivity.class);
             startActivity(intent);
         });
     }
 }
-
