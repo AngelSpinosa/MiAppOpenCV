@@ -6,13 +6,14 @@ import android.content.res.AssetFileDescriptor;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Pair;
-import android.util.Size;
+import android.util.Size; // Clase de Android para la cámara
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.camera.core.CameraInfo;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageProxy;
@@ -28,7 +29,8 @@ import org.opencv.android.OpenCVLoader;
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.Mat;
-import org.opencv.core.Scalar;
+import org.opencv.core.MatOfPoint;
+import org.opencv.core.Rect;
 import org.opencv.imgproc.Imgproc;
 import org.tensorflow.lite.Interpreter;
 
@@ -38,39 +40,34 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class NumberRecognitionActivity extends AppCompatActivity {
 
-    private static final String TAG = "TFLite_Activity";
+    private static final String TAG = "TFLite_Tracking";
     private static final int REQUEST_CODE_PERMISSIONS = 10;
     private final String[] REQUIRED_PERMISSIONS = new String[]{Manifest.permission.CAMERA};
 
-    // --- Vistas de Layout ---
     private PreviewView previewView;
+    private View reticleView;
     private TextView tvPrediction;
-
-    // --- CameraX ---
     private ExecutorService cameraExecutor;
-
-    // --- TFLite ---
     private Interpreter tflite;
-    private static final String TFLITE_MODEL_NAME = "Modelo_mejorado.tflite";
-    private static final int MODEL_INPUT_WIDTH = 28;
-    private static final int MODEL_INPUT_HEIGHT = 28;
 
-    // --- OpenCV (para pre-procesamiento) ---
-    private Mat yuvMat, grayMat, resizedMat, invertedMat, floatMat;
+    // Configuración
+    private static final String TFLITE_MODEL_NAME = "modelo_tinyFinal.tflite";
+    private static final int MODEL_INPUT_SIZE = 28;
 
-    // Cargar OpenCV (¡necesario para el pre-procesamiento!)
+    // Mats de OpenCV
+    private Mat yuvMat, grayMat, rotatedMat, blurredMat, thresholdMat, hierarchy;
+    private Mat croppedMat, resizedMat, invertedMat, floatMat;
+
     static {
-        if (OpenCVLoader.initDebug()) {
-            Log.d(TAG, "OpenCV cargado exitosamente.");
-        } else {
-            Log.e(TAG, "Fallo al cargar OpenCV.");
-        }
+        if (OpenCVLoader.initDebug()) Log.d(TAG, "OpenCV OK");
+        else Log.e(TAG, "OpenCV Error");
     }
 
     @Override
@@ -79,250 +76,221 @@ public class NumberRecognitionActivity extends AppCompatActivity {
         setContentView(R.layout.activity_number_recognition);
 
         previewView = findViewById(R.id.tflite_preview_view);
+        reticleView = findViewById(R.id.reticle_view);
         tvPrediction = findViewById(R.id.tv_prediction);
         cameraExecutor = Executors.newSingleThreadExecutor();
 
-        // Inicializar el intérprete de TFLite
         try {
             tflite = new Interpreter(loadModelFile());
-            Log.d(TAG, "Intérprete de TFLite cargado.");
         } catch (IOException e) {
-            Log.e(TAG, "Error al cargar el modelo de TFLite.", e);
-            Toast.makeText(this, "Error al cargar modelo.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Error modelo", Toast.LENGTH_SHORT).show();
             finish();
         }
 
-        // Pedir permisos de cámara
-        if (allPermissionsGranted()) {
-            startCamera();
-        } else {
-            ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS);
-        }
+        if (allPermissionsGranted()) startCamera();
+        else ActivityCompat.requestPermissions(this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS);
     }
 
     private void startCamera() {
-        ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
-
-        cameraProviderFuture.addListener(() -> {
+        ListenableFuture<ProcessCameraProvider> future = ProcessCameraProvider.getInstance(this);
+        future.addListener(() -> {
             try {
-                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-
+                ProcessCameraProvider provider = future.get();
                 Preview preview = new Preview.Builder().build();
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
 
-                CameraSelector cameraSelector = new CameraSelector.Builder()
-                        .addCameraFilter(cameraInfos -> {
-                            for (CameraInfo cameraInfo : cameraInfos) {
-                                Integer lensFacing = cameraInfo.getLensFacing();
-                                if (lensFacing != null && lensFacing == CameraSelector.LENS_FACING_BACK) {
-                                    return Collections.singletonList(cameraInfo);
-                                }
-                            }
-                            return Collections.emptyList();
-                        })
-                        .build();
-
-                // Configurar el analizador de imagen
-                ImageAnalysis imageAnalyzer = new ImageAnalysis.Builder()
-                        // Usar una resolución cercana a la del modelo si es posible,
-                        // pero 640x480 es estándar y funciona bien.
-                        .setTargetResolution(new Size(640, 480))
+                // Resolución VGA para rastreo rápido
+                ImageAnalysis analyzer = new ImageAnalysis.Builder()
+                        .setTargetResolution(new Size(480, 640)) // android.util.Size
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build();
 
-                imageAnalyzer.setAnalyzer(cameraExecutor, new TFLiteAnalyzer());
+                analyzer.setAnalyzer(cameraExecutor, new TrackingAnalyzer());
 
-                cameraProvider.unbindAll();
-                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalyzer);
-                Log.d(TAG, "CameraX iniciado y enlazado.");
-
+                provider.unbindAll();
+                provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analyzer);
             } catch (Exception e) {
-                Log.e(TAG, "Fallo al iniciar o enlazar CameraX.", e);
-                runOnUiThread(() -> Toast.makeText(this, "No se pudo iniciar la cámara.", Toast.LENGTH_LONG).show());
+                Log.e(TAG, "Error CameraX", e);
             }
         }, ContextCompat.getMainExecutor(this));
     }
 
-    // --- Clase Analizadora (El "Puente") ---
-    private class TFLiteAnalyzer implements ImageAnalysis.Analyzer {
-
+    // --- ANALIZADOR DE RASTREO ---
+    private class TrackingAnalyzer implements ImageAnalysis.Analyzer {
         @Override
         public void analyze(@NonNull ImageProxy image) {
-            // Inicializar Mats si es la primera vez
             if (yuvMat == null) {
-                // El formato es YUV_420_888, que tiene 1.5 bytes por píxel
-                yuvMat = new Mat(image.getHeight() + image.getHeight() / 2, image.getWidth(), CvType.CV_8UC1);
+                yuvMat = new Mat();
                 grayMat = new Mat();
-                resizedMat = new Mat(MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT, CvType.CV_8UC1);
-                invertedMat = new Mat(MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT, CvType.CV_8UC1);
-                floatMat = new Mat(MODEL_INPUT_WIDTH, MODEL_INPUT_HEIGHT, CvType.CV_32F);
+                rotatedMat = new Mat();
+                blurredMat = new Mat();
+                thresholdMat = new Mat();
+                hierarchy = new Mat();
+                resizedMat = new Mat(MODEL_INPUT_SIZE, MODEL_INPUT_SIZE, CvType.CV_8UC1);
+                invertedMat = new Mat(MODEL_INPUT_SIZE, MODEL_INPUT_SIZE, CvType.CV_8UC1);
+                floatMat = new Mat(MODEL_INPUT_SIZE, MODEL_INPUT_SIZE, CvType.CV_32F);
             }
 
-            // 1. Convertir ImageProxy (YUV) a Mat (YUV)
-            ImageProxy.PlaneProxy[] planes = image.getPlanes();
-            ByteBuffer yBuffer = planes[0].getBuffer();
-            ByteBuffer uBuffer = planes[1].getBuffer();
-            ByteBuffer vBuffer = planes[2].getBuffer();
-            int ySize = yBuffer.remaining();
-            int uSize = uBuffer.remaining();
-            int vSize = vBuffer.remaining();
-            byte[] nv21 = new byte[ySize + uSize + vSize];
-            yBuffer.get(nv21, 0, ySize);
-            vBuffer.get(nv21, ySize, vSize);
-            uBuffer.get(nv21, ySize + vSize, uSize);
-            yuvMat.put(0, 0, nv21);
+            // 1. Preparar imagen (Grises + Rotación)
+            convertImageToGrayMat(image);
 
-            // 2. Convertir Mat (YUV) a Mat (Escala de Grises)
-            // (COLOR_YUV2GRAY_NV21 es más directo que pasar por RGBA)
-            Imgproc.cvtColor(yuvMat, grayMat, Imgproc.COLOR_YUV2GRAY_NV21);
+            // 2. Detección de Contornos (OpenCV)
+            Imgproc.GaussianBlur(rotatedMat, blurredMat, new org.opencv.core.Size(5, 5), 0);
+            Imgproc.adaptiveThreshold(blurredMat, thresholdMat, 255,
+                    Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY_INV, 11, 2);
 
-            // 3. Aplicar rotación
-            // (Obtenemos la rotación de la cámara y la aplicamos al Mat)
-            int rotationDegrees = image.getImageInfo().getRotationDegrees();
-            if (rotationDegrees != 0) {
-                Core.rotate(grayMat, grayMat, getRotationConstant(rotationDegrees));
+            List<MatOfPoint> contours = new ArrayList<>();
+            Imgproc.findContours(thresholdMat, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+
+            // 3. Buscar el mejor candidato
+            Rect bestRect = findBestContour(contours);
+
+            if (bestRect != null) {
+                // 4. Recortar y Clasificar
+                int padding = 15;
+                int x = Math.max(bestRect.x - padding, 0);
+                int y = Math.max(bestRect.y - padding, 0);
+                int w = Math.min(bestRect.width + 2 * padding, rotatedMat.cols() - x);
+                int h = Math.min(bestRect.height + 2 * padding, rotatedMat.rows() - y);
+
+                Rect cropRect = new Rect(x, y, w, h);
+                croppedMat = new Mat(rotatedMat, cropRect);
+
+                ByteBuffer input = convertMatToByteBuffer(croppedMat);
+                Pair<Integer, Float> result = runInference(input);
+
+                // 5. Actualizar UI Dinámica
+                int imgW = rotatedMat.cols();
+                int imgH = rotatedMat.rows();
+                Rect finalRect = bestRect;
+
+                runOnUiThread(() -> updateTrackingUI(finalRect, imgW, imgH, result.first, result.second));
+            } else {
+                runOnUiThread(() -> {
+                    reticleView.setVisibility(View.INVISIBLE);
+                    tvPrediction.setVisibility(View.INVISIBLE);
+                });
             }
-
-            // 4. Pre-procesar para el modelo TFLite
-            ByteBuffer inputBuffer = convertMatToByteBuffer(grayMat);
-
-            // 5. Correr Inferencia
-            Pair<Integer, Float> result = runInference(inputBuffer);
-
-            // 6. Mostrar Resultado en el Hilo Principal
-            int predictedDigit = result.first;
-            float confidence = result.second * 100.0f; // Convertir a porcentaje
-
-            runOnUiThread(() -> {
-                tvPrediction.setText(String.format("Dígito: %d\nConfianza: %.2f%%", predictedDigit, confidence));
-            });
-
-            // ¡MUY IMPORTANTE! Cerrar la imagen para que venga la siguiente.
             image.close();
         }
+
+        private Rect findBestContour(List<MatOfPoint> contours) {
+            Rect bestRect = null;
+            double maxArea = 0;
+            for (MatOfPoint contour : contours) {
+                double area = Imgproc.contourArea(contour);
+                if (area > 400) { // Filtro de ruido
+                    Rect rect = Imgproc.boundingRect(contour);
+                    float aspect = (float) rect.width / (float) rect.height;
+                    if (aspect > 0.2 && aspect < 3.0) { // Filtro de forma
+                        if (area > maxArea) {
+                            maxArea = area;
+                            bestRect = rect;
+                        }
+                    }
+                }
+            }
+            return bestRect;
+        }
+
+        private void convertImageToGrayMat(ImageProxy image) {
+            ImageProxy.PlaneProxy[] planes = image.getPlanes();
+            ByteBuffer buffer = planes[0].getBuffer();
+            byte[] data = new byte[buffer.remaining()];
+            buffer.get(data);
+            Mat yMat = new Mat(image.getHeight(), image.getWidth(), CvType.CV_8UC1);
+            yMat.put(0, 0, data);
+
+            int rotation = image.getImageInfo().getRotationDegrees();
+            if (rotation == 90) Core.rotate(yMat, rotatedMat, Core.ROTATE_90_CLOCKWISE);
+            else if (rotation == 270) Core.rotate(yMat, rotatedMat, Core.ROTATE_90_COUNTERCLOCKWISE);
+            else if (rotation == 180) Core.rotate(yMat, rotatedMat, Core.ROTATE_180);
+            else yMat.copyTo(rotatedMat);
+        }
     }
 
-    /**
-     * Pre-procesa el Mat de OpenCV y lo convierte en el ByteBuffer
-     * que el modelo TFLite espera.
-     *
-     * @param inputMat Mat de entrada (escala de grises, tamaño completo)
-     * @return ByteBuffer listo para la inferencia.
-     */
+    // --- UI DINÁMICA ---
+    private void updateTrackingUI(Rect rect, int imgWidth, int imgHeight, int digit, float confidence) {
+        if (previewView.getWidth() == 0) return;
+
+        float scaleX = (float) previewView.getWidth() / imgWidth;
+        float scaleY = (float) previewView.getHeight() / imgHeight;
+        float scale = Math.max(scaleX, scaleY);
+
+        float offsetX = (previewView.getWidth() - imgWidth * scale) / 2.0f;
+        float offsetY = (previewView.getHeight() - imgHeight * scale) / 2.0f;
+
+        int screenX = (int) (rect.x * scale + offsetX);
+        int screenY = (int) (rect.y * scale + offsetY);
+        int screenW = (int) (rect.width * scale);
+        int screenH = (int) (rect.height * scale);
+
+        reticleView.setVisibility(View.VISIBLE);
+        ViewGroup.LayoutParams params = reticleView.getLayoutParams();
+        params.width = screenW;
+        params.height = screenH;
+        reticleView.setLayoutParams(params);
+        reticleView.setTranslationX(screenX);
+        reticleView.setTranslationY(screenY);
+
+        tvPrediction.setVisibility(View.VISIBLE);
+        tvPrediction.setTranslationX(screenX);
+        tvPrediction.setTranslationY(screenY + screenH);
+
+        if (confidence > 0.6f) {
+            tvPrediction.setText(String.format("%d (%.0f%%)", digit, confidence * 100));
+            tvPrediction.setTextColor(0xFF00FF00);
+        } else {
+            tvPrediction.setText("?");
+            tvPrediction.setTextColor(0xFFFF0000);
+        }
+    }
+
     private ByteBuffer convertMatToByteBuffer(Mat inputMat) {
-        // 1. Redimensionar el Mat al tamaño del modelo (28x28)
-        // INTER_AREA es bueno para reducir tamaño.
-        Imgproc.resize(inputMat, resizedMat, resizedMat.size(), 0, 0, Imgproc.INTER_AREA);
+        // --- CORRECCIÓN DEL ERROR AQUÍ ---
+        // Usamos org.opencv.core.Size explícitamente
+        Imgproc.resize(inputMat, resizedMat, new org.opencv.core.Size(MODEL_INPUT_SIZE, MODEL_INPUT_SIZE), 0, 0, Imgproc.INTER_AREA);
 
-        // 2. Invertir la imagen (de negro-sobre-blanco a blanco-sobre-negro)
-        // El modelo de "Tiny" (y MNIST) espera 1.0f - (pixel)
-        // Core.subtract(new Scalar(255), resizedMat, invertedMat); <-- REEMPLAZAR ESTA LÍNEA
-        Core.bitwise_not(resizedMat, invertedMat); // <-- CON ESTA LÍNEA
-
-        // 3. Normalizar a float (0.0 - 1.0)
-        // Convierte el Mat de 8-bit (0-255) a 32-bit float (0.0-1.0)
+        Core.bitwise_not(resizedMat, invertedMat);
         invertedMat.convertTo(floatMat, CvType.CV_32F, 1.0 / 255.0);
 
-        // 4. Crear el ByteBuffer
-        int bufferSize = MODEL_INPUT_WIDTH * MODEL_INPUT_HEIGHT * 4; // 4 bytes por float
-        ByteBuffer inputBuffer = ByteBuffer.allocateDirect(bufferSize);
-        inputBuffer.order(ByteOrder.nativeOrder());
-
-        // 5. Copiar los datos del Mat al ByteBuffer
-        // (Es más rápido copiar a un array y luego al buffer)
-        float[] floatArray = new float[MODEL_INPUT_WIDTH * MODEL_INPUT_HEIGHT];
-        floatMat.get(0, 0, floatArray);
-        inputBuffer.asFloatBuffer().put(floatArray);
-
-        return inputBuffer;
+        ByteBuffer buffer = ByteBuffer.allocateDirect(MODEL_INPUT_SIZE * MODEL_INPUT_SIZE * 4);
+        buffer.order(ByteOrder.nativeOrder());
+        float[] data = new float[MODEL_INPUT_SIZE * MODEL_INPUT_SIZE];
+        floatMat.get(0, 0, data);
+        buffer.asFloatBuffer().put(data);
+        return buffer;
     }
 
-    /**
-     * Corre la inferencia de TFLite.
-     * (Traducción de la función "inferencia" de Kotlin a Java)
-     *
-     * @param inputBuffer El ByteBuffer pre-procesado.
-     * @return Un Par (Pair) que contiene el dígito (Índice) y la confianza (Valor).
-     */
-    private Pair<Integer, Float> runInference(ByteBuffer inputBuffer) {
-        // El modelo tiene 1 salida (un array de 10 floats)
+    private Pair<Integer, Float> runInference(ByteBuffer input) {
         float[][] output = new float[1][10];
-
-        // Correr el modelo
-        tflite.run(inputBuffer, output);
-
-        // Encontrar el índice con la probabilidad más alta
-        int maxIndex = -1;
-        float maxConfidence = 0.0f;
-
-        for (int i = 0; i < output[0].length; i++) {
-            if (output[0][i] > maxConfidence) {
-                maxConfidence = output[0][i];
-                maxIndex = i;
+        tflite.run(input, output);
+        int maxIdx = -1;
+        float maxConf = 0;
+        for (int i = 0; i < 10; i++) {
+            if (output[0][i] > maxConf) {
+                maxConf = output[0][i];
+                maxIdx = i;
             }
         }
-
-        return new Pair<>(maxIndex, maxConfidence);
+        return new Pair<>(maxIdx, maxConf);
     }
 
-    /**
-     * Carga el archivo del modelo .tflite desde la carpeta /assets.
-     * (Traducción de la función "cargarModelo" de Kotlin a Java)
-     */
     private MappedByteBuffer loadModelFile() throws IOException {
-        AssetFileDescriptor fileDescriptor = this.getAssets().openFd(TFLITE_MODEL_NAME);
-        FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
-        FileChannel fileChannel = inputStream.getChannel();
-        long startOffset = fileDescriptor.getStartOffset();
-        long declaredLength = fileDescriptor.getDeclaredLength();
-        return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
-    }
-
-    /**
-     * Ayudante para convertir grados de rotación a constantes de OpenCV.
-     */
-    private int getRotationConstant(int rotationDegrees) {
-        switch (rotationDegrees) {
-            case 90:
-                return Core.ROTATE_90_CLOCKWISE;
-            case 180:
-                return Core.ROTATE_180;
-            case 270:
-                return Core.ROTATE_90_COUNTERCLOCKWISE;
-            default:
-                return -1; // No rotar
-        }
-    }
-
-    // --- Lógica de Permisos (copiada de tu CameraActivity) ---
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQUEST_CODE_PERMISSIONS) {
-            if (allPermissionsGranted()) {
-                startCamera();
-            } else {
-                Toast.makeText(this, "Permisos no concedidos por el usuario.", Toast.LENGTH_SHORT).show();
-                finish();
-            }
-        }
+        AssetFileDescriptor fd = getAssets().openFd(TFLITE_MODEL_NAME);
+        FileInputStream is = new FileInputStream(fd.getFileDescriptor());
+        return is.getChannel().map(FileChannel.MapMode.READ_ONLY, fd.getStartOffset(), fd.getDeclaredLength());
     }
 
     private boolean allPermissionsGranted() {
-        for (String permission : REQUIRED_PERMISSIONS) {
-            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-                return false;
-            }
-        }
+        for (String p : REQUIRED_PERMISSIONS) if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) return false;
         return true;
     }
 
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        cameraExecutor.shutdown();
-        if (tflite != null) {
-            tflite.close();
-        }
+    @Override public void onRequestPermissionsResult(int r, @NonNull String[] p, @NonNull int[] g) {
+        super.onRequestPermissionsResult(r, p, g);
+        if (r == REQUEST_CODE_PERMISSIONS && allPermissionsGranted()) startCamera();
     }
+
+    @Override protected void onDestroy() { super.onDestroy(); cameraExecutor.shutdown(); if(tflite!=null) tflite.close(); }
 }

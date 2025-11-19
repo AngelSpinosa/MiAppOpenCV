@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <!-- Fondo transparente -->
+    <solid android:color="@android:color/transparent" />
+
+    <!-- Borde (Stroke) de color verde (o el que gustes) y 3dp de grosor -->
+    <stroke
+        android:width="3dp"
+        android:color="#00FF00" />
+
+    <!-- Redondear esquinas un poco -->
+    <corners android:radius="8dp" />
+</shape>
