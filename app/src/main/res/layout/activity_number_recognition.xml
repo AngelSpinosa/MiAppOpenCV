@@ -6,7 +6,7 @@
     android:layout_height="match_parent"
     tools:context=".NumberRecognitionActivity">
 
-    <!-- Vista previa de CameraX que ocupa toda la pantalla -->
+    <!-- 1. La cámara va PRIMERO (al fondo) -->
     <androidx.camera.view.PreviewView
         android:id="@+id/tflite_preview_view"
         android:layout_width="0dp"
@@ -16,21 +16,21 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- TextView para mostrar el resultado -->
+    <!-- 2. La etiqueta va DESPUÉS (encima de la cámara) -->
     <TextView
         android:id="@+id/tv_prediction"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:background="#80000000"
+        android:layout_margin="32dp"
+        android:background="#CC000000"
         android:gravity="center"
         android:padding="16dp"
         android:text="---"
         android:textColor="@android:color/white"
         android:textSize="24sp"
         android:textStyle="bold"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

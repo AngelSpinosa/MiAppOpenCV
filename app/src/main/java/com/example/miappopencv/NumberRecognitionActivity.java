@@ -57,7 +57,7 @@ public class NumberRecognitionActivity extends AppCompatActivity {
 
     // --- TFLite ---
     private Interpreter tflite;
-    private static final String TFLITE_MODEL_NAME = "modelo_tinyFinal.tflite";
+    private static final String TFLITE_MODEL_NAME = "Modelo_mejorado.tflite";
     private static final int MODEL_INPUT_WIDTH = 28;
     private static final int MODEL_INPUT_HEIGHT = 28;
 
