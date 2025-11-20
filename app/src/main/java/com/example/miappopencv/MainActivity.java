@@ -13,18 +13,15 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Referencia al botón del filtro OpenCV
-        Button btnLaunchOpenCVFilter = findViewById(R.id.btn_launch_opencv_filter);
-        btnLaunchOpenCVFilter.setOnClickListener(v -> {
-            // Lanza la CameraActivity existente
-            Intent intent = new Intent(MainActivity.this, CameraActivity.class);
-            startActivity(intent);
-        });
+        // --- CÓDIGO DEL FILTRO B/N ELIMINADO ---
+        // Se ha eliminado el listener del botón 'btn_launch_opencv_filter'
+        // para quitar el acceso a CameraActivity desde la UI.
+        // La clase CameraActivity sigue existiendo en el proyecto para referencia futura.
 
         // Referencia al botón del reconocedor de números
         Button btnLaunchNumberRecognition = findViewById(R.id.btn_launch_number_recognition);
         btnLaunchNumberRecognition.setOnClickListener(v -> {
-            // Lanza la NUEVA NumberRecognitionActivity
+            // Lanza la actividad de reconocimiento
             Intent intent = new Intent(MainActivity.this, NumberRecognitionActivity.class);
             startActivity(intent);
         });

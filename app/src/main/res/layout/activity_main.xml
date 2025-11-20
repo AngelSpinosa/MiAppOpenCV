@@ -24,15 +24,14 @@
 
     <!--
     GridLayout para los botones del menú.
-    columnCount="2" significa que habrá 2 columnas.
-    Los botones se añadirán de izquierda a derecha, y luego saltarán a la siguiente fila.
+    Ahora solo tiene un botón, pero mantenemos el Grid por si quieres añadir más cosas luego.
     -->
     <androidx.gridlayout.widget.GridLayout
         android:id="@+id/main_menu_grid"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="32dp"
-        app:columnCount="2"
+        app:columnCount="1"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tv_title"
@@ -40,23 +39,9 @@
         app:layout_constraintVertical_bias="0.0"
         >
 
-        <!--
-        Botón para lanzar la actividad de filtro OpenCV existente.
-        app:layout_columnWeight="1" y android:layout_width="0dp" hacen que el botón
-        ocupe el espacio disponible en su columna.
-        app:layout_gravity="fill_horizontal" asegura que llene el ancho.
-        -->
-        <Button
-            android:id="@+id/btn_launch_opencv_filter"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_margin="8dp"
-            android:text="Filtro B/N (OpenCV)"
-            android:textSize="16sp"
-            app:layout_columnWeight="1"
-            app:layout_gravity="fill_horizontal" />
+        <!-- Botón de Filtro B/N ELIMINADO -->
 
-        <!-- Botón para lanzar la nueva actividad de reconocimiento de números -->
+        <!-- Botón para lanzar la actividad de reconocimiento de números -->
         <Button
             android:id="@+id/btn_launch_number_recognition"
             android:layout_width="0dp"
@@ -66,32 +51,6 @@
             android:textSize="16sp"
             app:layout_columnWeight="1"
             app:layout_gravity="fill_horizontal" />
-
-        <!--
-        PUEDES AÑADIR MÁS BOTONES AQUÍ.
-        Por ejemplo, si añades un tercer botón, aparecerá en la siguiente fila,
-        en la primera columna.
-
-        <Button
-            android:id="@+id/btn_nueva_funcion_3"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_margin="8dp"
-            android:text="Función 3"
-            android:textSize="16sp"
-            app:layout_columnWeight="1"
-            app:layout_gravity="fill_horizontal" />
-
-        <Button
-            android:id="@+id/btn_nueva_funcion_4"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_margin="8dp"
-            android:text="Función 4"
-            android:textSize="16sp"
-            app:layout_columnWeight="1"
-            app:layout_gravity="fill_horizontal" />
-        -->
 
     </androidx.gridlayout.widget.GridLayout>
 
