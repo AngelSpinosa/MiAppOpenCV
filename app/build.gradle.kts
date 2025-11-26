@@ -58,7 +58,12 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:${camerax_version}")
     implementation("androidx.camera:camera-view:${camerax_version}")
 
-    // --- ¡AÑADIR ESTAS LÍNEAS PARA TENSORFLOW LITE! ---
+    // ---AÑADIR ESTAS LÍNEAS PARA TENSORFLOW LITE---
     implementation("org.tensorflow:tensorflow-lite:2.15.0")
+    // --- NUEVAS DEPENDENCIAS PARA USB Y JSON ---
+    // Librería experta en comunicación serial USB (drivers CP210x, FTDI, CDC, etc.)
+    implementation("com.github.mik3y:usb-serial-for-android:3.7.0")
+    // Librería de Google para convertir Objetos Java a texto JSON fácilmente
+    implementation("com.google.code.gson:gson:2.10.1")
     // --- Fin de las nuevas dependencias ---
 }

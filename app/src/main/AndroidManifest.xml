@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.example.miappopencv">
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Permiso de cámara (ya lo tenías, solo asegurándonos) -->
     <uses-feature
-        android:name="android.hardware.camera"
-        android:required="false" />
+        android:name="android.hardware.usb.host" />
+
+    <!-- Permisos normales -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -20,7 +20,6 @@
         android:theme="@style/Theme.MiAppOpenCV"
         tools:targetApi="31">
 
-        <!-- MainActivity es ahora la actividad de inicio (LAUNCHER) -->
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -30,11 +29,12 @@
             </intent-filter>
         </activity>
 
-        <!-- CameraActivity existente (ya no es la de inicio) -->
         <activity android:name=".CameraActivity" />
-
-        <!-- Declaración de la NUEVA NumberRecognitionActivity -->
         <activity android:name=".NumberRecognitionActivity" />
+
+        <!-- Tu actividad de control -->
+        <activity android:name=".MovementPantiltActivity"
+            android:exported="false"/>
 
     </application>
 

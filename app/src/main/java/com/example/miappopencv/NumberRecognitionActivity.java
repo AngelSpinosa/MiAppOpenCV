@@ -58,7 +58,7 @@ public class NumberRecognitionActivity extends AppCompatActivity {
     private Interpreter tflite;
 
     // Configuración
-    private static final String TFLITE_MODEL_NAME = "modelo_tinyFinal.tflite";
+    private static final String TFLITE_MODEL_NAME = "prueba2.tflite";
     private static final int MODEL_INPUT_SIZE = 28;
 
     // Mats de OpenCV

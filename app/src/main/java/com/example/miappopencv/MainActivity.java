@@ -17,6 +17,15 @@ public class MainActivity extends AppCompatActivity {
         // Se ha eliminado el listener del botón 'btn_launch_opencv_filter'
         // para quitar el acceso a CameraActivity desde la UI.
         // La clase CameraActivity sigue existiendo en el proyecto para referencia futura.
+        //Referencia al boton de controles para el movimiento del servo
+        // Referencia al botón del reconocedor de números
+        Button btnLaunchMovementPantilt = findViewById(R.id.btn_launch_movement_pantilt);
+        btnLaunchMovementPantilt.setOnClickListener(v -> {
+            // Lanza la actividad de reconocimiento
+            Intent intent = new Intent(MainActivity.this, MovementPantiltActivity.class);
+            startActivity(intent);
+        });
+
 
         // Referencia al botón del reconocedor de números
         Button btnLaunchNumberRecognition = findViewById(R.id.btn_launch_number_recognition);

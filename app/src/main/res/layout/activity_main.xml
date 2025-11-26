@@ -11,21 +11,16 @@
         android:id="@+id/tv_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="MiAppOpenCV - Menú Principal"
+        android:text="MiAppOpenCV - Robot Head"
         android:textSize="20sp"
         android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.3"
+        app:layout_constraintVertical_bias="0.1"
         app:layout_constraintBottom_toTopOf="@+id/main_menu_grid"
-        app:layout_constraintVertical_chainStyle="packed"
         />
 
-    <!--
-    GridLayout para los botones del menú.
-    Ahora solo tiene un botón, pero mantenemos el Grid por si quieres añadir más cosas luego.
-    -->
     <androidx.gridlayout.widget.GridLayout
         android:id="@+id/main_menu_grid"
         android:layout_width="0dp"
@@ -39,15 +34,26 @@
         app:layout_constraintVertical_bias="0.0"
         >
 
-        <!-- Botón de Filtro B/N ELIMINADO -->
+        <!-- Botón AÑADIDO: Control de PanTilt -->
+        <Button
+            android:id="@+id/btn_launch_movement_pantilt"
+            android:layout_width="0dp"
+            android:layout_height="60dp"
+            android:layout_margin="8dp"
+            android:text="Controlar Cabeza Robot (USB)"
+            android:backgroundTint="@color/design_default_color_primary"
+            android:textSize="16sp"
+            app:layout_columnWeight="1"
+            app:layout_gravity="fill_horizontal" />
 
-        <!-- Botón para lanzar la actividad de reconocimiento de números -->
+        <!-- Botón existente -->
         <Button
             android:id="@+id/btn_launch_number_recognition"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="60dp"
             android:layout_margin="8dp"
             android:text="Reconocer Números (Tiny)"
+            android:backgroundTint="@color/design_default_color_secondary"
             android:textSize="16sp"
             app:layout_columnWeight="1"
             app:layout_gravity="fill_horizontal" />
