@@ -16,7 +16,9 @@
         android:textSize="18sp"
         android:textStyle="bold"
         android:textColor="#D32F2F"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.05"
+        app:layout_constraintBottom_toTopOf="@+id/btn_connect"/>
 
     <Button
         android:id="@+id/btn_connect"
@@ -28,61 +30,58 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
-    <!-- Controles -->
+    <!-- CONTROLES SLIDER -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:layout_marginTop="32dp"
+        android:layout_marginTop="24dp"
         app:layout_constraintTop_toBottomOf="@+id/btn_connect">
 
-        <Button
-            android:id="@+id/btn_pan_180"
-            android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:text="Girar PAN a 180°"
-            android:layout_marginBottom="16dp"/>
-
-        <Button
-            android:id="@+id/btn_tilt_35"
-            android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:text="Mover TILT a 35°"
-            android:layout_marginBottom="16dp"/>
-
-        <Button
-            android:id="@+id/btn_reset_00"
-            android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:text="RESET (0, 0)"
-            android:backgroundTint="#FF9800"/>
-    </LinearLayout>
-
-    <!-- Consola de logs -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Consola de comandos:"
-        android:layout_marginBottom="4dp"
-        app:layout_constraintBottom_toTopOf="@+id/scroll_logs"
-        app:layout_constraintStart_toStartOf="parent"/>
-
-    <!-- AÑADIDO: layout_marginBottom="60dp" para subirlo -->
-    <ScrollView
-        android:id="@+id/scroll_logs"
-        android:layout_width="match_parent"
-        android:layout_height="150dp"
-        android:background="#E0E0E0"
-        android:padding="8dp"
-        android:layout_marginBottom="60dp"
-        app:layout_constraintBottom_toBottomOf="parent">
+        <!-- PAN CONTROL -->
         <TextView
-            android:id="@+id/tv_logs"
+            android:id="@+id/tv_pan_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="PAN: 0°"
+            android:textStyle="bold"
+            android:textSize="16sp"/>
+
+        <!-- Max = 360 para ir de -180 a 180 -->
+        <SeekBar
+            android:id="@+id/seek_pan"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:textSize="12sp"
-            android:text="Esperando conexión..." />
-    </ScrollView>
+            android:max="360"
+            android:progress="180"
+            android:layout_marginBottom="24dp"/>
+
+        <!-- TILT CONTROL -->
+        <TextView
+            android:id="@+id/tv_tilt_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="TILT: 0°"
+            android:textStyle="bold"
+            android:textSize="16sp"/>
+
+        <!-- Max = 120 para ir de -30 a 90 -->
+        <SeekBar
+            android:id="@+id/seek_tilt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="120"
+            android:progress="30"
+            android:layout_marginBottom="24dp"/>
+
+        <Button
+            android:id="@+id/btn_center"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="Centrar Cámara (0,0)"
+            android:backgroundTint="#FF9800"
+            android:layout_marginTop="16dp"/>
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
